@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Jarvis">
+<meta name="theme-color" content="#0a0f1e">
+<title>Jarvis — Akbar ka Assistant</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0f1e;
+    --surface: #0f1729;
+    --card: #141d35;
+    --blue: #00d4ff;
+    --blue-dim: #0090b3;
+    --gold: #ffc300;
+    --text: #e8edf8;
+    --muted: #4a5580;
+    --danger: #ff4444;
+    --success: #00ff88;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Header */
+  .header {
+    position: relative;
+    z-index: 10;
+    padding: 20px 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--blue);
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(0,212,255,0.5);
+  }
+
+  .user-badge {
+    font-size: 12px;
+    color: var(--gold);
+    font-family: 'Orbitron', monospace;
+    letter-spacing: 1px;
+    background: rgba(255,195,0,0.1);
+    border: 1px solid rgba(255,195,0,0.3);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  /* Core orb */
+  .orb-container {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px 10px;
+  }
+
+  .orb-wrap {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .orb-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(0,212,255,0.2);
+    animation: ring-spin 8s linear infinite;
+  }
+  .orb-ring:nth-child(2) {
+    inset: 8px;
+    border-color: rgba(0,212,255,0.1);
+    animation-duration: 12s;
+    animation-direction: reverse;
+  }
+
+  @keyframes ring-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .orb {
+    position: absolute;
+    inset: 16px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1a6b8a, #0a2040, #050d1a);
+    border: 2px solid rgba(0,212,255,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow:
+      0 0 30px rgba(0,212,255,0.15),
+      inset 0 0 30px rgba(0,212,255,0.05);
+  }
+
+  .orb.listening {
+    background: radial-gradient(circle at 35% 35%, #8a1a1a, #401020, #1a0510);
+    border-color: rgba(255,68,68,0.6);
+    box-shadow: 0 0 40px rgba(255,68,68,0.3), inset 0 0 30px rgba(255,68,68,0.1);
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  .orb.thinking {
+    background: radial-gradient(circle at 35% 35%, #1a5a1a, #0a3010, #051a05);
+    border-color: rgba(0,255,136,0.6);
+    box-shadow: 0 0 40px rgba(0,255,136,0.3);
+    animation: think-pulse 0.6s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(255,68,68,0.3); }
+    50% { transform: scale(1.05); box-shadow: 0 0 60px rgba(255,68,68,0.5); }
+  }
+
+  @keyframes think-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .orb-icon {
+    font-size: 40px;
+    user-select: none;
+  }
+
+  .orb-label {
+    margin-top: 16px;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .orb-label.active { color: var(--danger); }
+  .orb-label.thinking-label { color: var(--success); }
+
+  /* Waveform bars */
+  .waveform {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    margin-top: 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .waveform.active { opacity: 1; }
+  .wave-bar {
+    width: 4px;
+    background: var(--danger);
+    border-radius: 2px;
+    animation: wave 0.6s ease-in-out infinite;
+    min-height: 4px;
+  }
+  .wave-bar:nth-child(1) { animation-delay: 0s; }
+  .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+  .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+  .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+  .wave-bar:nth-child(5) { animation-delay: 0.4s; }
+  .wave-bar:nth-child(6) { animation-delay: 0.2s; }
+  .wave-bar:nth-child(7) { animation-delay: 0.1s; }
+
+  @keyframes wave {
+    0%, 100% { height: 4px; }
+    50% { height: 24px; }
+  }
+
+  /* Status text */
+  .status-text {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 8px;
+    min-height: 18px;
+    transition: color 0.3s;
+  }
+  .status-text.active { color: var(--danger); }
+  .status-text.thinking-st { color: var(--success); }
+
+  /* Chat area */
+  .chat-area {
+    position: relative;
+    z-index: 10;
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 42vh;
+  }
+
+  .chat-area::-webkit-scrollbar { width: 3px; }
+  .chat-area::-webkit-scrollbar-track { background: transparent; }
+  .chat-area::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 2px; }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: msg-in 0.3s ease;
+  }
+
+  @keyframes msg-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user { align-items: flex-end; }
+  .msg.jarvis { align-items: flex-start; }
+
+  .msg-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    padding: 0 6px;
+  }
+
+  .msg-bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .msg.user .msg-bubble {
+    background: rgba(0,212,255,0.12);
+    border: 1px solid rgba(0,212,255,0.25);
+    color: var(--text);
+    border-bottom-right-radius: 4px;
+  }
+
+  .msg.jarvis .msg-bubble {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.07);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+  }
+
+  /* Input area */
+  .input-area {
+    position: relative;
+    z-index: 10;
+    padding: 14px 16px 20px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    background: linear-gradient(to top, var(--bg) 70%, transparent);
+  }
+
+  .text-input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 20px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    resize: none;
+    outline: none;
+    max-height: 100px;
+    overflow-y: auto;
+    transition: border-color 0.2s;
+  }
+
+  .text-input:focus { border-color: rgba(0,212,255,0.5); }
+  .text-input::placeholder { color: var(--muted); }
+
+  .send-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--blue-dim));
+    border: none;
+    color: var(--bg);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s, opacity 0.15s;
+    flex-shrink: 0;
+  }
+  .send-btn:active { transform: scale(0.92); opacity: 0.8; }
+
+  /* Memory panel */
+  .memory-bar {
+    position: relative;
+    z-index: 10;
+    margin: 0 16px 8px;
+    background: var(--card);
+    border: 1px solid rgba(255,195,0,0.15);
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+
+  .memory-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+    flex-shrink: 0;
+  }
+
+  .memory-text {
+    font-size: 12px;
+    color: rgba(255,195,0,0.7);
+    font-family: 'Orbitron', monospace;
+    letter-spacing: 1px;
+    flex: 1;
+  }
+
+  .memory-count {
+    font-size: 11px;
+    color: var(--gold);
+    background: rgba(255,195,0,0.1);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  /* Memory modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 100;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 24px 24px 0 0;
+    padding: 20px;
+    width: 100%;
+    max-height: 70vh;
+    overflow-y: auto;
+    animation: slide-up 0.3s ease;
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .modal-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+
+  .modal-close {
+    background: none;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .memory-item {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--text);
+    border-left: 2px solid var(--gold);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+  }
+
+  .empty-memory {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 20px;
+  }
+
+  /* Welcome */
+  .welcome-msg {
+    text-align: center;
+    padding: 16px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .welcome-msg strong {
+    color: var(--blue);
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  /* Speaking animation */
+  .speaking-indicator {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-radius: 20px;
+    margin: 0 auto 8px;
+    width: fit-content;
+    font-size: 11px;
+    color: var(--success);
+    font-family: 'Orbitron', monospace;
+    letter-spacing: 1px;
+  }
+  .speaking-indicator.active { display: flex; }
+  .speak-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: blink 0.8s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">JARVIS</div>
+  <div class="user-badge">AKBAR</div>
+</div>
+
+<div class="orb-container">
+  <div class="orb-wrap" id="orbWrap" onclick="toggleListen()">
+    <div class="orb-ring"></div>
+    <div class="orb-ring"></div>
+    <div class="orb" id="orb">
+      <div class="orb-icon">🤖</div>
+    </div>
+  </div>
+  <div class="orb-label" id="orbLabel">TAP TO SPEAK</div>
+  <div class="waveform" id="waveform">
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+  </div>
+  <div class="status-text" id="statusText">Taiyaar hoon, Akbar bhai</div>
+</div>
+
+<div class="speaking-indicator" id="speakingIndicator">
+  <div class="speak-dot"></div>
+  BOL RAHA HOON
+</div>
+
+<div class="memory-bar" onclick="openMemory()">
+  <div class="memory-dot"></div>
+  <div class="memory-text">MEMORY</div>
+  <div class="memory-count" id="memCount">0 yaadein</div>
+</div>
+
+<div class="chat-area" id="chatArea">
+  <div class="welcome-msg">
+    <strong>JARVIS v1.0</strong><br><br>
+    Namaste Akbar bhai! 👋<br>
+    Main aapka personal assistant hoon.<br>
+    Mic tap karo ya neeche type karo.<br>
+    Jo bhi batayenge — <strong>yaad rakhunga.</strong>
+  </div>
+</div>
+
+<div class="input-area">
+  <textarea class="text-input" id="textInput" placeholder="Ya yahan type karo..." rows="1"
+    onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button class="send-btn" onclick="sendText()">➤</button>
+</div>
+
+<!-- Memory Modal -->
+<div class="modal-overlay" id="memModal" onclick="closeMemory(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚡ MERI YAADEIN</div>
+      <button class="modal-close" onclick="closeMemoryBtn()">✕</button>
+    </div>
+    <div id="memoryList"></div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+const USER_NAME = "Akbar";
+const USER_CITY = "Silchar, Assam";
+
+let memories = JSON.parse(localStorage.getItem('jarvis_memories') || '[]');
+let chatHistory = [];
+let isListening = false;
+let isSpeaking = false;
+let recognition = null;
+let synth = window.speechSynthesis;
+
+// ─── MEMORY ──────────────────────────────────────────────
+function saveMemory(fact) {
+  if (!memories.includes(fact)) {
+    memories.push(fact);
+    localStorage.setItem('jarvis_memories', JSON.stringify(memories));
+    updateMemCount();
+  }
+}
+
+function updateMemCount() {
+  const el = document.getElementById('memCount');
+  el.textContent = memories.length + ' yaadein';
+}
+
+function openMemory() {
+  const list = document.getElementById('memoryList');
+  if (memories.length === 0) {
+    list.innerHTML = '<div class="empty-memory">Abhi koi yaad nahi hai.<br>Baat karo — main yaad karunga!</div>';
+  } else {
+    list.innerHTML = memories.map((m, i) =>
+      `<div class="memory-item"><span>${m}</span><button class="del-btn" onclick="deleteMemory(${i})">🗑</button></div>`
+    ).join('');
+  }
+  document.getElementById('memModal').classList.add('open');
+}
+
+function closeMemory(e) {
+  if (e.target.id === 'memModal') closeMemoryBtn();
+}
+function closeMemoryBtn() {
+  document.getElementById('memModal').classList.remove('open');
+}
+
+function deleteMemory(i) {
+  memories.splice(i, 1);
+  localStorage.setItem('jarvis_memories', JSON.stringify(memories));
+  updateMemCount();
+  openMemory();
+}
+
+// ─── CHAT UI ─────────────────────────────────────────────
+function addMsg(role, text) {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `
+    <div class="msg-label">${role === 'user' ? USER_NAME.toUpperCase() : 'JARVIS'}</div>
+    <div class="msg-bubble">${text}</div>
+  `;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+// ─── VOICE INPUT ─────────────────────────────────────────
+function toggleListen() {
+  if (isSpeaking) { synth.cancel(); setSpeaking(false); return; }
+  if (isListening) { stopListening(); return; }
+  startListening();
+}
+
+function startListening() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    setStatus('Voice support nahi hai — type karo', false);
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'hi-IN';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('orb').className = 'orb listening';
+    document.getElementById('orbLabel').textContent = 'SUN RAHA HOON';
+    document.getElementById('orbLabel').className = 'orb-label active';
+    document.getElementById('waveform').classList.add('active');
+    setStatus('Bolo Akbar bhai...', true);
+  };
+
+  recognition.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    stopListening();
+    processInput(text);
+  };
+
+  recognition.onerror = (e) => {
+    stopListening();
+    setStatus('Suna nahi — dobara try karo', false);
+  };
+
+  recognition.onend = () => { if (isListening) stopListening(); };
+  recognition.start();
+}
+
+function stopListening() {
+  isListening = false;
+  if (recognition) { try { recognition.stop(); } catch(e){} }
+  document.getElementById('orb').className = 'orb';
+  document.getElementById('orbLabel').textContent = 'TAP TO SPEAK';
+  document.getElementById('orbLabel').className = 'orb-label';
+  document.getElementById('waveform').classList.remove('active');
+  setStatus('Taiyaar hoon, Akbar bhai', false);
+}
+
+// ─── TEXT INPUT ──────────────────────────────────────────
+function sendText() {
+  const inp = document.getElementById('textInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  autoResize(inp);
+  processInput(text);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+// ─── CORE PROCESS ────────────────────────────────────────
+async function processInput(text) {
+  if (!text) return;
+  addMsg('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  // Set thinking state
+  document.getElementById('orb').className = 'orb thinking';
+  document.getElementById('orbLabel').textContent = 'SOCH RAHA HOON';
+  document.getElementById('orbLabel').className = 'orb-label thinking-label';
+  setStatus('Processing...', false, true);
+
+  try {
+    const memContext = memories.length > 0
+      ? `\n\nMeri yaadein (jo tune pehle bataya):\n${memories.map((m,i) => `${i+1}. ${m}`).join('\n')}`
+      : '';
+
+    const systemPrompt = `Tu JARVIS hai — ${USER_NAME} ka personal AI assistant. ${USER_NAME} Silchar, Assam mein rehta hai.
+
+Teri personality:
+- Seedha, friendly aur thoda formal — jaise Iron Man ka Jarvis
+- Hindi mein baat kar, kabhi kabhi "Akbar bhai" bol
+- Choti clear replies de — phone screen ke liye
+- Agar user kuch personal bataye (naam, pasand, kaam, family etc.) toh respond ke end mein ek line add kar:
+  [YAAD KARO: <fact>]
+  Example: [YAAD KARO: Akbar bhai ko cricket pasand hai]
+  Sirf ek fact per response, aur sirf tab jab genuinely nayi info ho.
+- Akbar ki city Silchar, Assam hai — location based questions mein yeh use kar
+- Har response mein helpful reh${memContext}`;
+
+    const OR_KEY = "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";
+    
+
+
+
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + OR_KEY
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-exp:free",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...chatHistory.slice(-10)
+        ]
+      })
+    });
+
+    const data = await response.json();
+    let reply = data.choices?.[0]?.message?.content || "Kuch problem hui, dobara try karo.";
+
+    // Extract memory command
+    const memMatch = reply.match(/\[YAAD KARO: (.+?)\]/);
+    if (memMatch) {
+      saveMemory(memMatch[1].trim());
+      reply = reply.replace(/\[YAAD KARO: .+?\]/, '').trim();
+    }
+
+    chatHistory.push({ role: 'assistant', content: reply });
+    addMsg('jarvis', reply);
+
+    // Reset orb
+    document.getElementById('orb').className = 'orb';
+    document.getElementById('orbLabel').textContent = 'TAP TO SPEAK';
+    document.getElementById('orbLabel').className = 'orb-label';
+    setStatus('Taiyaar hoon, Akbar bhai', false);
+
+    // Speak reply
+    speakText(reply);
+
+  } catch(err) {
+    document.getElementById('orb').className = 'orb';
+    document.getElementById('orbLabel').textContent = 'TAP TO SPEAK';
+    document.getElementById('orbLabel').className = 'orb-label';
+    setStatus('Error aaya — try again', false);
+    addMsg('jarvis', 'Maafi Akbar bhai, kuch gadbad ho gayi. Dobara try karo.');
+  }
+}
+
+// ─── VOICE OUTPUT ─────────────────────────────────────────
+function speakText(text) {
+  if (!synth) return;
+  synth.cancel();
+  // Remove emojis for TTS
+  const clean = text.replace(/[\u{1F000}-\u{1FFFF}]/gu, '').replace(/[^\w\s,.!?।—\-]/g, '').trim();
+  if (!clean) return;
+
+  const utt = new SpeechSynthesisUtterance(clean);
+  utt.lang = 'hi-IN';
+  utt.rate = 0.95;
+  utt.pitch = 0.9;
+
+  utt.onstart = () => setSpeaking(true);
+  utt.onend = () => setSpeaking(false);
+  utt.onerror = () => setSpeaking(false);
+
+  synth.speak(utt);
+}
+
+function setSpeaking(val) {
+  isSpeaking = val;
+  const ind = document.getElementById('speakingIndicator');
+  if (val) ind.classList.add('active');
+  else ind.classList.remove('active');
+}
+
+// ─── UTILS ───────────────────────────────────────────────
+function setStatus(msg, isActive, isThinking) {
+  const el = document.getElementById('statusText');
+  el.textContent = msg;
+  el.className = 'status-text' + (isActive ? ' active' : isThinking ? ' thinking-st' : '');
+}
+
+// Init
+updateMemCount();
+</script>
+</body>
+</html>
